@@ -7,5 +7,10 @@
 </body>
 
 <template name="chart">
-  <canvas id="myChart" width="800" height="400"></canvas>
+  <div class="chart">
+    {{#constant}}
+    <svg width="500px" height="500px">
+    </svg>
+    {{/constant}}
+  </div>
 </template>
