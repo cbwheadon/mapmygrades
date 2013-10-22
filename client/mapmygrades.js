@@ -1,78 +1,58 @@
-var drawChart = function(data,svg){
-    var margin = {top: 20, right: 20, bottom: 30, left: 50},
+var drawChart = function(data,svg,school,subject){
+    var dataset = data[0].schools;
+    //Width and height
+    var margin = {top: 80, right: 80, bottom: 80, left: 80},
     width = 960 - margin.left - margin.right,
     height = 500 - margin.top - margin.bottom;
 
-    var parseDate = d3.time.format("%Y%m%d").parse;
+    var padding = 30;
 
-    var x = d3.time.scale()
-	.range([0, width]);
-
-    var y = d3.scale.linear()
-	.range([height, 0]);
-
-    var xAxis = d3.svg.axis()
-	.scale(x)
-	.orient("bottom");
-
-    var yAxis = d3.svg.axis()
-	.scale(y)
-	.orient("left");
-
-    var line = d3.svg.area()
-	.interpolate("basis")
-	.x(function(d) { return x(d.date); })
-	.y(function(d) { return y(d["New York"]); });
-
-    var area = d3.svg.area()
-	.interpolate("basis")
-	.x(function(d) { return x(d.date); })
-	.y1(function(d) { return y(d["New York"]); });
+    var xScale = d3.scale.ordinal()
+        .domain(0,4)
+        .range([0, width]);
+    var yScale = d3.scale.linear()
+        .domain([-0.2, d3.max(dataset, function(d) { return d.val; })])
+        .range([height, 0]);
 
     var svg = d3.select(svg)
 	.attr("width", width + margin.left + margin.right)
 	.attr("height", height + margin.top + margin.bottom)
 	.append("g")
 	.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
-    
-    data.forEach(function(d) {
-	d.date = parseDate(d.date);
-	d["New York"]= +d["New York"];
-	d["San Francisco"] = +d["San Francisco"];
-    });
 
-    x.domain(d3.extent(data, function(d) { return d.date; }));
+    svg.selectAll("line")
+	.data(dataset)
+	.enter()
+	.append("line")
+	.attr("x1", function(d) {
+	    return xScale(0);
+	})
+	.attr("y1",function(d) {
+	    return yScale(0);
+	})
+	.attr("x2", function(d) {
+	    return xScale(4);
+	})
+	.attr("y2", function(d) {
+            return yScale(d.val);
+	})
+	.attr("class",function(d) {
+	    if (d.school==school){
+		return "mine" 
+	    } else {
+		return "other";
+	    }
+	});
 
-    y.domain([
-	d3.min(data, function(d) { return Math.min(d["New York"], d["San Francisco"]); }),
-	d3.max(data, function(d) { return Math.max(d["New York"], d["San Francisco"]); })
-    ]);
+    var xAxis = d3.svg.axis()
+	.scale(xScale)
+	.orient("bottom")
+	.tickValues(["Year 7","Year 11"])
 
-    svg.datum(data);
-
-    svg.append("clipPath")
-	.attr("id", "clip-below")
-	.append("path")
-	.attr("d", area.y0(height));
-
-    svg.append("clipPath")
-	.attr("id", "clip-above")
-	.append("path")
-	.attr("d", area.y0(0));
-
-    svg.append("path")
-	.attr("class", "area above")
-	.attr("clip-path", "url(#clip-above)")
-	.attr("d", area.y0(function(d) { return y(d["San Francisco"]); }));
-
-    svg.append("path")
-	.attr("class", "area below")
-	.attr("clip-path", "url(#clip-below)")
-	.attr("d", area);
-
-    svg.append("path")
-	.attr("class", "line")
-	.attr("d", line);
+    var yAxis = d3.svg.axis()
+	.scale(yScale)
+	.tickFormat(d3.format(".2f"))
+	.orient("right")
 
     svg.append("g")
 	.attr("class", "x axis")
@@ -81,38 +61,34 @@ var drawChart = function(data,svg){
 
     svg.append("g")
 	.attr("class", "y axis")
+	.attr("transform", "translate(" + width + ",0)")
 	.call(yAxis)
-	.append("text")
-	.attr("transform", "rotate(-90)")
-	.attr("y", 6)
-	.attr("dy", ".71em")
+
+    svg.append("text")
+	.attr("x", width - 6)
+	.attr("y", height - 6)
 	.style("text-anchor", "end")
-	.text("Temperature (F)");
+	.text(subject);
+
 }
 
-Temps = new Meteor.Collection("temps");
+Subjects = new Meteor.Collection("subjects");
 
 Template.chart.rendered = function(){
     var self = this;
     self.node = self.find("svg");
     if (!self.handle){
 	self.handle = Deps.autorun(function() {
-	    var ready = Meteor.subscribe("myTemps");
+	    var ready = Meteor.subscribe("mySubjects");
 	    if (ready.ready()){
-		var data = Temps.find({}).fetch();
-		drawChart(data,self.node);
+		var data = Subjects.find({_id:Session.get("subject")}).fetch();
+		drawChart(data, self.node, Session.get("school"), Session.get("subject"));
 	    }
 	});
     }
 }
 
-Template.chart.destroyed = function () {
-    var self = this;
-    self.node = self.find("svg");
-    self.handle.stop(); 
-};
-
-
 Meteor.startup(function () {
-
+    Session.set("school","10322");
+    Session.set("subject","2CS01_2011");
 });
