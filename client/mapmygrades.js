@@ -1,5 +1,16 @@
-var drawChart = function(data,svg,school,subject){
-    var dataset = data[0].schools;
+var drawChart = function(values,svg,school,subject,me){
+
+    var times = ["Year 7","Year 8","Year 9","Year 10", "Year 11"];
+    
+    /*
+    var values = [
+	[2, 4, 8],
+	[5, 9, 12],
+	[3, 2, 2],
+	[2, 4, 15]
+    ];
+    */
+    
     //Width and height
     var margin = {top: 80, right: 80, bottom: 80, left: 80},
     width = 960 - margin.left - margin.right,
@@ -7,50 +18,44 @@ var drawChart = function(data,svg,school,subject){
 
     var padding = 30;
 
-    var xScale = d3.scale.ordinal()
-        .domain(0,4)
-        .range([0, width]);
-    var yScale = d3.scale.linear()
-        .domain([-0.2, d3.max(dataset, function(d) { return d.val; })])
-        .range([height, 0]);
+    var x = d3.scale.ordinal()
+	.domain(times)
+	.rangePoints([0, width], 0.5);
 
+    var y = d3.scale.linear()
+        .range([height, 0])
+
+    y.domain(d3.extent(values, function(d) { return d[4]; }));
+    
     var svg = d3.select(svg)
 	.attr("width", width + margin.left + margin.right)
 	.attr("height", height + margin.top + margin.bottom)
 	.append("g")
 	.attr("transform", "translate(" + margin.left + "," + margin.top + ")");
 
-    svg.selectAll("line")
-	.data(dataset)
-	.enter()
-	.append("line")
-	.attr("x1", function(d) {
-	    return xScale(0);
-	})
-	.attr("y1",function(d) {
-	    return yScale(0);
-	})
-	.attr("x2", function(d) {
-	    return xScale(4);
-	})
-	.attr("y2", function(d) {
-            return yScale(d.val);
-	})
-	.attr("class",function(d) {
-	    if (d.school==school){
-		return "mine" 
+    var line = d3.svg.line()
+	.interpolate("basis")
+	.x(function(d, i) { return x(times[i]); })
+	.y(y);
+
+    svg.selectAll(".line")
+	.data(values)
+	.enter().append("path")
+	.attr("class", function (d,i) {
+	    if(i==me){
+		return "myline";
 	    } else {
-		return "other";
+		return "line";
 	    }
-	});
+	 })
+	.attr("d", line);
 
     var xAxis = d3.svg.axis()
-	.scale(xScale)
+	.scale(x)
 	.orient("bottom")
-	.tickValues(["Year 7","Year 11"])
 
     var yAxis = d3.svg.axis()
-	.scale(yScale)
+	.scale(y)
 	.tickFormat(d3.format(".2f"))
 	.orient("right")
 
@@ -63,16 +68,57 @@ var drawChart = function(data,svg,school,subject){
 	.attr("class", "y axis")
 	.attr("transform", "translate(" + width + ",0)")
 	.call(yAxis)
-
-    svg.append("text")
-	.attr("x", width - 6)
-	.attr("y", height - 6)
-	.style("text-anchor", "end")
-	.text(subject);
+	.append("text")
+	.attr("transform", "rotate(90)")
+	.attr("y", 6)
+	.attr("dy", ".71em")
+	.style("text-anchor", "beginning")
+	.text("Value-added (GCSE grades)");
 
 }
 
 Subjects = new Meteor.Collection("subjects");
+
+Template.caption.subject = function(){
+    var subj = Session.get("subject");
+    var data = Subjects.find({_id:subj},{}).fetch();
+    if (data){
+	return(data[0])
+    }    
+}
+
+Template.caption.me = function(){
+    return Session.get("myProgress");
+}
+
+Template.caption.myScore = function(){
+    return Session.get("myScore");
+}
+
+Template.header.subject = function(){
+    return Session.get("subject")
+}
+
+Template.caption.helpers({
+  round: function (x) {
+      return (parseFloat(Math.round(x * 100) / 100).toFixed(2));
+  },
+  split: function (x) {
+      return (x.split("_").join(" in "));
+  }
+});
+
+Template.header.helpers({
+  split: function (x) {
+      return (x.split("_").join(" in "));
+  }
+});
+
+var findGrade = function(x) {
+    var grades = ["G","F","E","D","C","B","A","A*","A^"];
+    grade = grades[Math.round(x)-1];
+    return grade;
+}
 
 Template.chart.rendered = function(){
     var self = this;
@@ -81,8 +127,22 @@ Template.chart.rendered = function(){
 	self.handle = Deps.autorun(function() {
 	    var ready = Meteor.subscribe("mySubjects");
 	    if (ready.ready()){
-		var data = Subjects.find({_id:Session.get("subject")}).fetch();
-		drawChart(data, self.node, Session.get("school"), Session.get("subject"));
+		var data = Subjects.find({_id:Session.get("subject")},{}).fetch();
+		var dat = data[0]['schools'];
+		var out = [];
+		var mn = data[0]['mn_score'];
+		for (var i = 0; i < dat.length; i++) {
+		    var tmp = dat[i].val
+		    if(dat[i].school==Session.get("school")){
+			var me = i;
+			var progress = findGrade(tmp + mn);
+			Session.set("myProgress",progress);
+			Session.set("myScore",tmp);
+		    }
+		    var inc = Array.apply(0, Array(5)).map(function (x, y) { return y * (tmp/4); }); 
+		    out.push(inc);
+		}
+		drawChart(out, self.node, Session.get("school"), Session.get("subject"), me);
 	    }
 	});
     }
