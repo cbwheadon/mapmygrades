@@ -3,21 +3,29 @@
 </head>
 
 <body>
-  {{> header}}
+  {{> subjects}}
   {{> caption}}
   {{> chart}}
 </body>
 
-<template name="header">
+<template name="subjects">
   <h1>{{split subject}}</h1>
-  <p></p>
+  <div class="btn-group">
+    <button class="btn btn-default btn-sm dropdown-toggle" type="button" data-toggle="dropdown">
+      Select Subject <span class="caret"></span>
+    </button>
+    <ul class="dropdown-menu">
+      {{#each list}}
+      <li><a href="#">{{this}}</li>
+      {{/each}}
+    </ul>
+    <p></p>
+  </div>
 </template>
 
 <template name="chart">
   <div class="chart">
     {{#constant}}
-    <svg width="500px" height="500px">
-    </svg>
     {{/constant}}
   </div>
 </template>
