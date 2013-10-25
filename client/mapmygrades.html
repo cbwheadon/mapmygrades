@@ -3,14 +3,38 @@
 </head>
 
 <body>
+  {{> subjects}}
+  {{> caption}}
   {{> chart}}
 </body>
+
+<template name="subjects">
+  <h1>{{subject}} in {{year}}</h1>
+  <div class="btn-group">
+    <button class="btn btn-default btn-sm dropdown-toggle" type="button" data-toggle="dropdown">
+      Select Subject <span class="caret"></span>
+    </button>
+    <ul class="dropdown-menu">
+      {{#each list}}
+      <li><a href="#">{{this}}</li>
+      {{/each}}
+    </ul>
+    <p></p>
+  </div>
+</template>
 
 <template name="chart">
   <div class="chart">
     {{#constant}}
-    <svg width="500px" height="500px">
-    </svg>
     {{/constant}}
+  </div>
+</template>
+
+<template name="caption">
+  <div class="caption">
+    <p>The average Key Stage 2 level of students entering {{split subject._id}} was {{round subject.mKS}}.</p>
+    <p>The centre achieving the least progress would expect this student, on average, to get a grade {{subject.mn_grade}} ({{round subject.mn_score}} on the grade scale from 1 to 8 where G=1 and A*=8). We define this as zero progress.</p>
+    <p>Based on your performance in {{split subject._id}} your centre should expect this student to achieve a grade {{me}} ({{round myScore}} grades higher).</p>
+    <p>The centre achieving the most progress would expect this student, on average, to get a grade {{subject.mx_grade}}.</p>
   </div>
 </template>
