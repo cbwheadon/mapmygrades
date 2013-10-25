@@ -1,4 +1,4 @@
-var drawChart = function(values,svg,school,subject,me){
+var drawChart = function(values,school,subject,me){
 
     var times = ["Year 7","Year 8","Year 9","Year 10", "Year 11"];
 
@@ -144,29 +144,32 @@ var drawChart = function(values,svg,school,subject,me){
 
 Subjects = new Meteor.Collection("subjects");
 Schools = new Meteor.Collection("schools");
+Queries = new Meteor.Collection("queries");
 
 Template.caption.subject = function(){
-    var subj = Session.get("subject");
-    var data = Subjects.find({_id:subj},{}).fetch();
-    if (data){
-	return(data[0])
+    var subject = Subjects.findOne({'subject':Session.get('subject'),'year':Session.get('year')},{'vals':-1});
+    if (subject){
+	return(subject);
     }    
 }
 
 Template.subjects.list = function(){
-    console.log(Session.get('school'));
-    var data = Schools.find({'_id':Session.get('school'),'year':Session.get('year')}).fetch();
-    if (data[0] && data[0].hasOwnProperty('subject')) {
-	return(data[0].subject);
+    var data = Schools.findOne({'centre':Session.get('school'), 'year': Session.get('year')});
+    if (data && data.hasOwnProperty('vals')) {
+	subjects = [];
+	coeffs = data['vals'];
+	for (var i = 0; i < coeffs.length; i++){
+	    subjects.push(Object.keys(coeffs[i]))
+	}
+	return(subjects);
     }
 }
 
 Template.subjects.events({
     'click li a': function (event) {
 	var subj = event.currentTarget.text;
-	var subj_year = subj + "_" + Session.get('year');
 	d3.select("svg").remove();
-	Session.set('subject',subj_year);
+	Session.set('subject',subj);
     }
 })
 
@@ -179,26 +182,17 @@ Template.caption.myScore = function(){
 }
 
 Template.subjects.subject = function(){
-    return Session.get("subject")
+    return Session.get('subject');
+}
+
+Template.subjects.year = function(){
+    return Session.get("year")
 }
 
 Template.caption.helpers({
   round: function (x) {
       return (parseFloat(Math.round(x * 100) / 100).toFixed(2));
-  },
-    split: function (x) {
-	if(x){
-	    return (x.split("_").join(" in "));
-	}
-    }
-});
-
-Template.subjects.helpers({
-    split: function (x) {
-	if (x) {
-	    return (x.split("_").join(" in "));
-	}
-    }
+  }
 });
 
 var findGrade = function(x) {
@@ -212,26 +206,32 @@ Template.chart.rendered = function(){
     self.node = self.find("svg");
     if (!self.handle){
 	self.handle = Deps.autorun(function() {
-	    var ready1 = Meteor.subscribe("mySubjects");
-	    var ready2 = Meteor.subscribe("mySchools");
+	    var subject = Session.get('subject');
+	    var school = Session.get('school');
+	    var year = Session.get('year');
+	    var ready1 = Meteor.subscribe("Subjects");
+	    var ready2 = Meteor.subscribe("Schools", school);
 	    if (ready1.ready() & ready2.ready()){
-		var data = Subjects.find({_id:Session.get("subject")},{}).fetch();
-		var dat = data[0]['schools'];
+		var data = Subjects.findOne({'subject':subject,'year':year},{});
+		var mydata = Schools.findOne({'centre':school, 'year': year});
+		var coeffs = data['vals'];
+		var mycoeffs = mydata['vals']
 		var out = [];
-		var mn = data[0]['mn_score'];
-		for (var i = 0; i < dat.length; i++) {
-		    var tmp = dat[i].val
-		    if(dat[i].school==Session.get("school")){
-			var me = i;
-			var progress = findGrade(tmp);
-			Session.set("myProgress",progress);
-			Session.set("myScore",tmp-mn);
+		var mn = data['mn_score'];
+		for (var i = 0; i < mycoeffs.length; i++){
+		    if (Object.keys(mycoeffs[i])==subject) {
+			score = mycoeffs[i][subject]
+			coeffs.push(score);
+			Session.set('myScore', score - data['mn_score']);
+			Session.set('me', findGrade(score));
 		    }
+		}
+		for (var i = 0; i < coeffs.length; i++) {
 		    //calculate the slope of the line
-		    var inc = Array.apply(0, Array(5)).map(function (x, y) { return mn + (y *((tmp-mn)/4)) ;}); 
+		    var inc = Array.apply(0, Array(5)).map(function (x, y) { return mn + (y *((coeffs[i]-mn)/4)) ;}); 
 		    out.push(inc);
 		}
-		drawChart(out, self.node, Session.get("school"), Session.get("subject"), me);
+		drawChart(out, school, subject, coeffs.length-1);
 	    }
 	});
     }
@@ -240,5 +240,7 @@ Template.chart.rendered = function(){
 Meteor.startup(function () {
     Session.set("school","10322");
     Session.set("year", 2011);
-    Session.set("subject","2CS01_2011");
+    Session.set("subject","2CS01");
+    query = Queries.insert({'user':Session.get('school')});
+    Session.set("query_id", query);
 });

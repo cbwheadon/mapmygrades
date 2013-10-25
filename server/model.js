@@ -1,10 +1,18 @@
 Subjects = new Meteor.Collection("subjects");
-Meteor.publish("mySubjects", function(){
+Queries = new Meteor.Collection("queries");
+Schools = new Meteor.Collection("schools");
+
+Meteor.publish("Queries", function(id){
+    return Queries.find({_id:id});
+});
+
+Meteor.publish("Subjects", function(){
     return Subjects.find({});
 });
 
-Schools = new Meteor.Collection("schools");
-Meteor.publish("mySchools", function(){
-    return Schools.find({});
+Meteor.publish("Schools", function(centre){
+    return Schools.find({"centre":centre});
 });
+
+
 
